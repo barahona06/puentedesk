@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "@forge/api": "^8.5.0",
+    "@forge/bridge": "^7.3.0",
+    "@forge/kvs": "^2.1.2",
+    "@forge/react": "^12.5.0",
+    "@forge/resolver": "^2.0.2",
+    "react": "^18.3.1"
+  },
+  "description": "PuenteDesk — bilingual support desk for Jira Service Management. Customers write in Spanish, agents work in English; PuenteDesk translates with case context and a Rovo agent drafts replies in the customer's language.",
+  "license": "Apache-2.0",
+  "name": "puentedesk",
+  "private": true,
+  "scripts": {
+    "test:demo": "node test/run-demo.js",
+    "check:manifest": "node test/check-manifest.mjs"
+  },
+  "type": "module",
+  "version": "1.0.0",
+  "devDependencies": {
+    "yaml": "^2.9.1"
+  }
+}

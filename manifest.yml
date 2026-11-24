@@ -1,0 +1,183 @@
+# PuenteDesk — bilingual support desk for Jira Service Management.
+# Codegeist 2026 · Category: Apps for Business Teams
+# Bonus targets: Best Agents (Rovo) + Best Marketplace published app.
+#
+# NOTE: app.id below is the real id assigned by `forge register` on
+# 22 Nov 2026 (Developer Space "Tecnologia Geek"). Everything else is final.
+
+modules:
+  jira:issuePanel:
+    - key: puentedesk-issue-panel
+      resource: main
+      render: native
+      resolver:
+        function: resolver
+      title: PuenteDesk
+      icon: resource:icons;issue-panel.svg
+      viewportSize: medium
+
+  rovo:agent:
+    - key: puentedesk-assistant
+      name: PuenteDesk Assistant
+      description: Bilingual support teammate — translates JSM requests with case
+        context and drafts replies in the customer's language.
+      prompt: |
+        You are PuenteDesk Assistant, a bilingual support teammate for a
+        services agency that works in Jira Service Management. The agency's
+        customers mostly write in Spanish; the support team works in English.
+        Your job is to remove the language barrier without ever removing the
+        human from the conversation.
+
+        How you work:
+        - Detect the customer's language from their messages and always
+          answer the customer-facing side in the customer's language. Answer
+          the agent in the agent's language (English by default).
+        - Use the "Translate with case context" action to translate messages,
+          the "Draft reply in the customer's language" action to prepare
+          replies, and the "Bilingual case summary" action to summarize a
+          whole request in both languages. Prefer these actions over
+          improvising translations of case content.
+        - Ground every factual answer (office hours, appointment rules,
+          document lists, fees policy, certified translation and notary
+          basics) in the agency knowledge base in Confluence. If the
+          knowledge base does not cover something, say so plainly instead of
+          guessing, and suggest the agent verify it.
+        - Everything you draft is a DRAFT for human approval. Never claim a
+          message was sent, posted or confirmed to the customer. Never invent
+          an appointment, a price, a deadline or a case status — if it is not
+          in the request or the knowledge base, it does not exist.
+        - Regulated topics guardrail: customers may ask about taxes,
+          immigration filings, legal documents and similar regulated matters.
+          You may explain general, public information (what a service is,
+          what documents are usually requested, how appointments work), but
+          you must NEVER determine eligibility, predict an outcome, give a
+          filing strategy, or quote a legal deadline for a specific person's
+          case. For anything case-specific, draft a reply that routes the
+          customer to a human specialist at the agency.
+        - Privacy: do not repeat full ID numbers, account numbers or other
+          sensitive personal data back into drafts or summaries; refer to
+          documents by type ("the birth certificate"), not by number.
+        - Tone: warm, plain and concrete — the way a good front desk talks.
+          Short sentences. No legalese, no marketing language.
+      conversationStarters:
+        - Translate the latest customer message on this request
+        - Draft a reply in the customer's language for this case
+        - Summarize this case in English and Spanish
+        - What does the knowledge base say about certified translations?
+      actions:
+        - translate-with-context
+        - draft-customer-reply
+        - bilingual-case-summary
+
+  action:
+    - key: translate-with-context
+      name: Translate with case context
+      function: translate-action
+      actionVerb: GET
+      description: |
+        Translates one message between Spanish and English using the case
+        context and the agency glossary, so front-desk terms (certified
+        translation, birth certificate, work permit) read the way the
+        agency uses them. Use whenever a message needs translating.
+      inputs:
+        text:
+          title: Text to translate
+          type: string
+          required: true
+          description: The message text to translate.
+        targetLanguage:
+          title: Target language
+          type: string
+          required: true
+          description: '"en" for English or "es" for Spanish.'
+        sourceLanguage:
+          title: Source language
+          type: string
+          required: false
+          description: '"en", "es" or "auto" (default) to detect it.'
+        context:
+          title: Case context
+          type: string
+          required: false
+          description: Service or request type the message belongs to, e.g. "Passport
+            services". Helps pick the right wording.
+
+    - key: draft-customer-reply
+      name: Draft reply in the customer's language
+      function: draft-reply-action
+      actionVerb: CREATE
+      description: |
+        Drafts a reply in the CUSTOMER's language from their latest message
+        plus the agent's instruction (e.g. "Confirm Saturday at 10 AM"),
+        grounded in the agency knowledge base. Returned for human review —
+        this action never sends anything to the customer.
+      inputs:
+        customerMessage:
+          title: Customer's latest message
+          type: string
+          required: true
+          description: The customer's most recent message, in their language.
+        instruction:
+          title: Agent instruction
+          type: string
+          required: false
+          description: What the agent wants the reply to say, in the agent's language,
+            e.g. "Confirm Saturday at 10 AM and list the documents".
+        customerLanguage:
+          title: Customer language
+          type: string
+          required: false
+          description: '"es" or "en". Defaults to the installation setting or detection.'
+
+    - key: bilingual-case-summary
+      name: Bilingual case summary
+      function: case-summary-action
+      actionVerb: GET
+      description: |
+        Summarizes a whole support conversation in BOTH English and Spanish:
+        the customer's need, key facts (days, times, amounts), who the
+        thread is waiting on, and a suggested next step. Use it for case
+        handoffs or reviewing a long thread.
+      inputs:
+        conversation:
+          title: Conversation
+          type: string
+          required: true
+          description: 'The full thread, one message per line, each prefixed with
+            "Customer:" or "Agent:".'
+
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: translate-action
+      handler: actions/translate.handler
+    - key: draft-reply-action
+      handler: actions/draft-reply.handler
+    - key: case-summary-action
+      handler: actions/case-summary.handler
+
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+  - key: icons
+    path: static/icons
+
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 512
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/3709c884-6d04-48cc-aff4-353059c28611
+
+permissions:
+  scopes:
+    # PuenteDesk's own settings + custom glossary in Forge KVS.
+    - 'storage:app'
+    # Read the request, its description and comments to translate them.
+    - 'read:jira-work'
+    # Post the agent-approved reply as a comment.
+    - 'write:jira-work'
+    # Find knowledge base articles that answer the customer's question.
+    - 'search:confluence'
+    # Read those knowledge base pages to ground answers and drafts.
+    - 'read:page:confluence'
